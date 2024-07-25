@@ -21,9 +21,19 @@ exports.addReview = async (req, res) => {
 };
 
 exports.getReviews = async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
     try {
-        const reviews = await Review.find().populate('user', ['username']);
-        res.json(reviews);
+        const reviews = await Review.find()
+            .populate('user', ['username'])
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .exec();
+        const count = await Review.countDocuments();
+        res.json({
+            reviews,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -50,11 +60,9 @@ exports.updateReview = async (req, res) => {
         if (!review) {
             return res.status(404).json({ msg: 'Review not found' });
         }
-
         if (review.user.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
-
         review = await Review.findByIdAndUpdate(
             req.params.id,
             { $set: { title, author, reviewText, rating, image } },
@@ -71,12 +79,10 @@ exports.deleteReview = async (req, res) => {
     try {
         let review = await Review.findById(req.params.id);
         if (!review) return res.status(404).json({ msg: 'Review not found' });
-
         if (review.user.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
-
-        await Review.findByIdAndDelete(req.params.id); // Use findByIdAndDelete
+        await Review.findByIdAndDelete(req.params.id);
         res.json({ msg: 'Review removed' });
     } catch (err) {
         console.error(err.message);
@@ -85,9 +91,20 @@ exports.deleteReview = async (req, res) => {
 };
 
 exports.getUserReviews = async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
     try {
-        const reviews = await Review.find({ user: req.user.id }).populate('user', ['username']);
-        res.json(reviews);
+        const userId = new mongoose.Types.ObjectId(req.user.id); // Use `new` here
+        const reviews = await Review.find({ user: userId })
+            .populate('user', ['username'])
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .exec();
+        const count = await Review.countDocuments({ user: userId });
+        res.json({
+            reviews,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
