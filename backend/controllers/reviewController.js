@@ -21,14 +21,22 @@ exports.addReview = async (req, res) => {
 };
 
 exports.getReviews = async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, search = '' } = req.query;
     try {
-        const reviews = await Review.find()
+        const query = {
+            $or: [
+                { title: { $regex: search, $options: 'i' } },
+                { author: { $regex: search, $options: 'i' } }
+            ]
+        };
+
+        const reviews = await Review.find(query)
             .populate('user', ['username'])
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .exec();
-        const count = await Review.countDocuments();
+
+        const count = await Review.countDocuments(query);
         res.json({
             reviews,
             totalPages: Math.ceil(count / limit),
@@ -91,15 +99,22 @@ exports.deleteReview = async (req, res) => {
 };
 
 exports.getUserReviews = async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, search = '' } = req.query;
     try {
-        const userId = new mongoose.Types.ObjectId(req.user.id); // Use `new` here
-        const reviews = await Review.find({ user: userId })
+        const query = {
+            user: new mongoose.Types.ObjectId(req.user.id),
+            $or: [
+                { title: { $regex: search, $options: 'i' } },
+                { author: { $regex: search, $options: 'i' } }
+            ]
+        };
+
+        const reviews = await Review.find(query)
             .populate('user', ['username'])
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .exec();
-        const count = await Review.countDocuments({ user: userId });
+        const count = await Review.countDocuments(query);
         res.json({
             reviews,
             totalPages: Math.ceil(count / limit),
